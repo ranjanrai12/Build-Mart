@@ -29,12 +29,30 @@ import { SeederService } from './common/seeder.service';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'sqlite',
-        database: 'buildmart.db',
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // Only for development!
-      }),
+      useFactory: (config: ConfigService) => {
+        const dbType = config.get('DB_TYPE') || 'sqlite';
+        
+        if (dbType === 'postgres') {
+          return {
+            type: 'postgres',
+            host: config.get<string>('DB_HOST', 'localhost'),
+            port: config.get<number>('DB_PORT', 5432),
+            username: config.get<string>('DB_USERNAME', 'postgres'),
+            password: config.get<string>('DB_PASSWORD', 'postgres'),
+            database: config.get<string>('DB_DATABASE', 'buildmart_db'),
+            entities: [__dirname + '/**/*.entity{.ts,.js}'],
+            synchronize: config.get<string>('NODE_ENV') !== 'production',
+            ssl: config.get<string>('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
+          };
+        }
+
+        return {
+          type: 'sqlite',
+          database: 'buildmart.db',
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          synchronize: true,
+        };
+      },
     }),
     TypeOrmModule.forFeature([User, Product, Category, CartItem, ShippingProvider, Shipment]),
     AuthModule, 

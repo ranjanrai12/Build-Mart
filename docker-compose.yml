@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Backend App
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_DATABASE=buildmart_db
+      - JWT_SECRET=production-ready-secret-change-this
+      - PORT=3000
+    depends_on:
+      - db
+
+  # Production-ready PostgreSQL
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=buildmart_db
+    ports:
+      - "5433:5432" # Map to 5433 locally to avoid conflicts with existing postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
