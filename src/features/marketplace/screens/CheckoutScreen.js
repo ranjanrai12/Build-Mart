@@ -14,9 +14,6 @@ import { useOrders } from '../../../context/OrderContext';
 import { useAddresses } from '../../../context/AddressContext';
 import { COLORS, FONTS, SIZES, RADIUS, SHADOWS } from '../../../constants/theme';
 import useCurrency from '../../../hooks/useCurrency';
-
-import { COLORS, FONTS, SIZES, RADIUS, SHADOWS } from '../../../constants/theme';
-import useCurrency from '../../../hooks/useCurrency';
 import PaymentSimulationModal from '../../../components/shared/PaymentSimulationModal';
 
 const PAYMENT_METHODS = [
