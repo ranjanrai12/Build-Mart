@@ -88,9 +88,21 @@ export default function OrderSuccessScreen({ navigation, route }) {
               <Text style={styles.label}>Transaction Value</Text>
               <Text style={styles.value}>{formatINR(total)}</Text>
             </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.label}>Payment Method</Text>
+              <Text style={styles.value}>{order?.paymentMethod || 'Pay on Delivery'}</Text>
+            </View>
+            {order?.transactionId && (
+              <View style={styles.summaryItem}>
+                <Text style={styles.label}>Ref ID</Text>
+                <Text style={styles.value} numberOfLines={1}>{order.transactionId}</Text>
+              </View>
+            )}
             <View style={styles.statusRow}>
               <View style={styles.statusDot} />
-              <Text style={styles.statusText}>Processing at Logistics Hub</Text>
+              <Text style={styles.statusText}>
+                {order?.paymentStatus === 'Completed' ? 'Payment Verified' : 'Awaiting Fulfillment'}
+              </Text>
             </View>
           </View>
         </Animated.View>

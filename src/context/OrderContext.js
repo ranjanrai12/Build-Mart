@@ -101,6 +101,17 @@ export function OrderProvider({ children }) {
     }
   };
 
+  const verifyPayment = async (orderId, paymentData) => {
+    try {
+      const response = await apiClient.post(`/orders/${orderId}/verify-payment`, paymentData);
+      dispatch({ type: 'UPDATE_ORDER', payload: response.data });
+      return response.data;
+    } catch (error) {
+      console.error('Error verifying payment:', error);
+      throw error;
+    }
+  };
+
   const rejectOrder = (orderId) => {
     return updateStatus(orderId, 'Rejected');
   };
@@ -180,6 +191,7 @@ export function OrderProvider({ children }) {
       placeOrder, 
       advanceStatus, 
       updateStatus, 
+      verifyPayment,
       rejectOrder, 
       sellerOrders, 
       buyerOrders,

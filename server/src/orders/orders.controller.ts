@@ -42,4 +42,9 @@ export class OrdersController {
   updateStatus(@Param('id') id: string, @Body('status') status: OrderStatus) {
     return this.ordersService.updateOrderStatus(id, status);
   }
+
+  @Post(':id/verify-payment')
+  verifyPayment(@Param('id') id: string, @Body() paymentData: any) {
+    return this.ordersService.verifyPayment(id, paymentData);
+  }
 }

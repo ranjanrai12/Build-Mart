@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Order, OrderStatus } from './entities/order.entity';
+import { Order, OrderStatus, PaymentStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { User } from '../auth/entities/user.entity';
 import { Product } from '../products/entities/product.entity';
@@ -58,6 +58,7 @@ export class OrdersService {
         deliveryFee: splitDeliveryFee,
         total: subtotal + splitDeliveryFee,
         status: OrderStatus.PLACED,
+        paymentStatus: PaymentStatus.PENDING,
       });
 
       const savedOrder = await this.orderRepo.save(order);
@@ -87,6 +88,26 @@ export class OrdersService {
     );
 
     return finalOrders;
+  }
+
+  async verifyPayment(orderId: string, paymentData: { transactionId: string, details: any }) {
+    const order = await this.orderRepo.findOne({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
+
+    // In a real scenario, we'd verify the transactionId with Razorpay/Stripe API here
+    order.paymentStatus = PaymentStatus.COMPLETED;
+    order.transactionId = paymentData.transactionId;
+    order.paymentDetails = paymentData.details;
+    
+    // If payment is completed, auto-confirm the order
+    order.status = OrderStatus.CONFIRMED;
+
+    await this.orderRepo.save(order);
+
+    return this.orderRepo.findOne({
+      where: { id: orderId },
+      relations: ['items', 'items.product', 'buyer', 'seller'],
+    });
   }
 
   async getBuyerOrders(buyerId: string) {

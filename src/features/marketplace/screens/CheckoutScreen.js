@@ -15,6 +15,10 @@ import { useAddresses } from '../../../context/AddressContext';
 import { COLORS, FONTS, SIZES, RADIUS, SHADOWS } from '../../../constants/theme';
 import useCurrency from '../../../hooks/useCurrency';
 
+import { COLORS, FONTS, SIZES, RADIUS, SHADOWS } from '../../../constants/theme';
+import useCurrency from '../../../hooks/useCurrency';
+import PaymentSimulationModal from '../../../components/shared/PaymentSimulationModal';
+
 const PAYMENT_METHODS = [
   { id: 'COD', label: 'Cash on Delivery', icon: 'payments', sub: 'Pay when materials arrive' },
   { id: 'UPI', label: 'UPI / Net Banking', icon: 'account-balance', sub: 'Instant & Secure' },
@@ -24,7 +28,7 @@ const PAYMENT_METHODS = [
 export default function CheckoutScreen({ navigation, route }) {
   const { subtotal = 0, deliveryFee = 150, total = 0 } = route.params || {};
   const { items, clearCart } = useCart();
-  const { placeOrder } = useOrders();
+  const { placeOrder, verifyPayment } = useOrders();
   const { user } = useAuth();
   const { addresses, addAddress } = useAddresses();
   const { formatINR } = useCurrency();
@@ -37,6 +41,7 @@ export default function CheckoutScreen({ navigation, route }) {
   const [payment, setPayment] = useState('COD');
   const [loading, setLoading] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // Group items by seller for review
   const groupedItems = items.reduce((acc, item) => {
@@ -87,7 +92,7 @@ export default function CheckoutScreen({ navigation, route }) {
     }
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     let finalAddress = '';
     if (addressMode === 'saved') {
       const savedAddr = addresses.find(a => a.id === selectedSavedId);
@@ -108,19 +113,73 @@ export default function CheckoutScreen({ navigation, route }) {
       }
     }
 
+    if (payment === 'COD') {
+      // Cash on Delivery - Direct Flow
+      setLoading(true);
+      try {
+        const newOrders = await placeOrder(items, {
+          buyerId: user?.id,
+          address: finalAddress,
+          paymentMethod: payment,
+          subtotal,
+          deliveryFee
+        });
+        clearCart();
+        setLoading(false);
+        navigation.navigate('OrderSuccess', { total, order: newOrders[0] });
+      } catch (err) {
+        setLoading(false);
+      }
+    } else {
+      // Digital Payment - Simulation Flow
+      setShowPaymentModal(true);
+    }
+  };
+
+  const handlePaymentSuccess = async (transactionId) => {
+    setShowPaymentModal(false);
     setLoading(true);
-    setTimeout(async () => {
-      const newOrder = await placeOrder(items, {
+
+    try {
+      // 1. Resolve Address again for reuse
+      let finalAddress = '';
+      if (addressMode === 'saved') {
+        const addr = addresses.find(a => a.id === selectedSavedId);
+        finalAddress = `${addr.address}, ${addr.city}, ${addr.pin}`;
+      } else {
+        finalAddress = `${manualAddress.street}, ${manualAddress.city}, ${manualAddress.pin}`;
+      }
+
+      // 2. Create the orders (Status: PLACED, Payment: PENDING)
+      const newOrders = await placeOrder(items, {
         buyerId: user?.id,
         address: finalAddress,
         paymentMethod: payment,
         subtotal,
         deliveryFee
       });
+
+      // 3. Verify Payment for each order created (e.g. multi-seller split)
+      await Promise.all(newOrders.map(order => 
+        verifyPayment(order.id, { 
+          transactionId, 
+          details: { method: payment, timestamp: new Date().toISOString() } 
+        })
+      ));
+
       clearCart();
       setLoading(false);
-      navigation.navigate('OrderSuccess', { total, order: newOrder });
-    }, 1000);
+      navigation.navigate('OrderSuccess', { total, order: newOrders[0] });
+      
+      Toast.show({ 
+        type: 'success', 
+        text1: 'Payment Verified', 
+        text2: 'Your procurement has been confirmed.' 
+      });
+    } catch (err) {
+      setLoading(false);
+      Toast.show({ type: 'error', text1: 'Verification Failed', text2: 'Please contact support.' });
+    }
   };
 
   return (
@@ -299,6 +358,14 @@ export default function CheckoutScreen({ navigation, route }) {
           </LinearGradient>
         </TouchableOpacity>
       </View>
+
+      <PaymentSimulationModal
+        visible={showPaymentModal}
+        amount={total}
+        method={PAYMENT_METHODS.find(m => m.id === payment)?.label}
+        onSuccess={handlePaymentSuccess}
+        onCancel={() => setShowPaymentModal(false)}
+      />
     </View>
   );
 }
